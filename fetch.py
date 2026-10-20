@@ -42,15 +42,9 @@ if os.environ.get("AGSI_KEY"):
     J("https://agsi.gie.eu/api?country=DE&size=30", {"x-key": os.environ["AGSI_KEY"]})
 for k in ("064120000000", "073150000000", "064140000000"):
     J(f"https://warnung.bund.de/api31/dashboard/{k}.json")
-for p in ("mowas", "katwarn", "biwapp", "police"):
-    J(f"https://warnung.bund.de/api31/{p}/mapData.json")
 for la, lo in ((50.11, 8.68), (51.31, 9.48), (50.55, 9.67), (50.58, 8.67), (49.87, 8.65)):
     J(f"https://api.brightsky.dev/alerts?lat={la}&lon={lo}")
-for q in ("site:presseportal.de Polizei Frankfurt", "Polizei Frankfurt Einsatz",
-          "site:presseportal.de Feuerwehr Frankfurt", "Feuerwehr Frankfurt Einsatz",
-          "Cyberangriff OR Ransomware OR BSI Warnung Energieversorger OR kritische Infrastruktur",
-          "Cyberangriff Deutschland", "Anschlag OR Terror OR Terrorwarnung Deutschland",
-          "Sabotage OR Spionage Deutschland kritische Infrastruktur"):
+for q in ['Polizei Frankfurt Einsatz OR Festnahme OR Unfall OR Großeinsatz -Eintracht -Fußball -Bundesliga', 'site:presseportal.de Polizei Frankfurt', 'Polizeipräsidium Frankfurt Meldung -Eintracht -Fußball', 'Feuerwehr Frankfurt Einsatz OR Brand OR Rettungsdienst -Eintracht -Fußball -Bundesliga', 'Berufsfeuerwehr Frankfurt am Main -Eintracht -Fußball', 'site:presseportal.de Feuerwehr Frankfurt', 'Cyberangriff OR Ransomware OR BSI Warnung Energieversorger OR kritische Infrastruktur', 'Cyberangriff Deutschland', 'Anschlag OR Terror OR Terrorwarnung Deutschland', 'Sabotage OR Spionage Deutschland kritische Infrastruktur']:
     N(q, 2)
 for q in ("Stromausfall", "Stromausfall Haushalte Straße",
           "Stromausfall Stadtteil Netzbetreiber", "Stromausfall Gemeinde Störung"):
