@@ -10,13 +10,13 @@ permissions:
 
 concurrency:
   group: update
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Daten abrufen
         run: python3 fetch.py
         env:
@@ -27,4 +27,4 @@ jobs:
           git config user.email "dashboard-bot@users.noreply.github.com"
           git add data.json
           git commit -m "Daten $(date -u +%H:%M) UTC" || exit 0
-          git push
+          git push || (git pull --rebase -X theirs && git push)
