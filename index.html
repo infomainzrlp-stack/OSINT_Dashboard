@@ -49,7 +49,40 @@ svg.spark{width:100%;height:40px;margin-top:10px}
 .mapbox{height:420px;border-radius:12px;overflow:hidden;background:var(--bg)}
 iframe.fr{display:block;width:100%;height:420px;border:0;border-radius:12px;background:var(--bg)}
 .clockwrap{display:flex;align-items:center;gap:12px}
+.clockwrap>div{width:285px;flex:none}
+.clockwrap .clock{white-space:nowrap}
+.clockwrap .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:700px){.clockwrap{width:100%}.clockwrap>div{width:auto;flex:1;min-width:0}}
 button.sm{padding:5px 10px;font-size:12px;border-radius:8px}
+.base-dark{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9)}
+.sel{display:flex;align-items:center;gap:10px;padding:7px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);cursor:pointer;user-select:none;font-size:12px;font-weight:700}
+.sel:hover{border-color:var(--ice)}
+.sel:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
+.sel .lab{display:flex;align-items:center;gap:6px;color:var(--mute);transition:color .2s}
+.sel .lab.on{color:var(--text)}
+.sel .led{width:7px;height:7px;border-radius:50%;background:var(--line);transition:all .2s}
+.sel .lab.on .led{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.sw{position:relative;width:48px;height:26px;border-radius:13px;background:var(--bg);border:1px solid var(--line);box-shadow:inset 0 2px 5px rgba(0,0,0,.35)}
+.lever{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:linear-gradient(145deg,#f1f6fb,#8a9bb0);box-shadow:0 2px 4px rgba(0,0,0,.45),inset 0 0 0 2px rgba(0,0,0,.12);transition:transform .2s cubic-bezier(.3,1.5,.5,1)}
+.sel[aria-checked=true] .lever{transform:translateX(22px)}
+.printhead{display:none;grid-column:1/-1}
+.po{display:none}
+@media print{
+ @page{size:A4;margin:12mm}
+ :root,:root[data-theme=light]{--bg:#fff;--panel:#fff;--line:#cfd8e3;--text:#111;--mute:#555;--ice:#0a5f9e;--ok:#17916a;--warn:#b7791f;--bad:#d64545;color-scheme:light}
+ body{font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ header,.note,.card h2 a,iframe,.leaflet-control-zoom{display:none!important}
+ iframe+.note{display:none!important}
+ .printhead{display:block;border-bottom:2px solid var(--ice);padding-bottom:8px;margin-bottom:2px;line-height:1.5}
+ .printhead .pt{font-size:20px;font-weight:800}
+ main{padding:0;gap:10px;grid-template-columns:repeat(2,1fr)}
+ .s3,.s4,.s6,.s8{grid-column:span 1}
+ .card{break-inside:avoid;padding:10px 12px}
+ .po{display:block;color:var(--mute);margin:0}
+ ul{max-height:none;overflow:visible}
+ .mapbox{height:260px}
+ .base-dark{filter:none}
+}
 </style>
 </head>
 <body>
@@ -57,11 +90,13 @@ button.sm{padding:5px 10px;font-size:12px;border-radius:8px}
   <h1>Lagebild Rhein-Main</h1>
   <div class="status"><span class="dot" id="dot"></span><span id="ampelTxt">Lade Daten …</span></div>
   <div class="sp"></div>
-  <div class="clockwrap"><button id="tz" class="sm" title="Zeitanzeige umschalten: Lokalzeit oder taktische Zeit (Zulu/UTC)">Lokal</button><div style="text-align:right"><div class="clock" id="clock"></div><div class="sub" id="cdate"></div><div class="sub" id="upd"></div></div></div>
+  <div class="clockwrap"><div id="tz" class="sel" role="switch" aria-checked="false" aria-label="Uhrzeit / Taktische Zeit" tabindex="0" title="Umschalten: Uhrzeit / Taktische Zeit (Berlin)"><span class="lab" data-m="l"><i class="led"></i>Uhrzeit</span><span class="sw"><span class="lever"></span></span><span class="lab" data-m="z"><i class="led"></i>Taktische Zeit</span></div><div style="text-align:right"><div class="clock" id="clock"></div><div class="sub" id="cdate"></div><div class="sub" id="upd"></div></div></div>
+  <button id="pdf" title="Seite als PDF speichern"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v3h16v-3"/></svg>PDF exportieren</button>
   <button id="ref">Aktualisieren</button>
   <button id="theme">Hell/Dunkel</button>
 </header>
 <main>
+  <div class="printhead" id="ph"></div>
   <section class="card s3"><h2>Wetter Frankfurt <span>Open-Meteo</span></h2><div id="wx" class="empty">Lade …</div></section>
   <section class="card s3"><h2>Main, Pegel Frankfurt <span>Pegelonline</span></h2><div id="pg" class="empty">Lade …</div></section>
   <section class="card s3"><h2>Strompreis Day-Ahead <span>Energy-Charts</span></h2><div id="pr" class="empty">Lade …</div></section>
@@ -70,10 +105,10 @@ button.sm{padding:5px 10px;font-size:12px;border-radius:8px}
   <section class="card s6"><h2>NINA-Warnungen Region <span>Frankfurt, Mainz, Wiesbaden</span></h2><ul id="nina"></ul></section>
   <section class="card s6"><h2>Unwetterwarnungen Hessen <span>DWD via Brightsky</span></h2><ul id="dwd"></ul></section>
 
-  <section class="card s8"><h2>Stromausfälle Deutschland <a href="https://xn--strungsauskunft-9sb.de/stromausfall" target="_blank" rel="noopener">Störungsauskunft.de in neuem Tab öffnen</a></h2><iframe id="map" src="https://xn--strungsauskunft-9sb.de/stromausfall" title="Karte Stromausfälle Deutschland, Störungsauskunft.de" loading="lazy" referrerpolicy="no-referrer"></iframe><p class="note">Wird hier nur eine leere Fläche angezeigt, erlaubt die Seite das Einbetten nicht. Dann über den Link oben öffnen.</p></section>
+  <section class="card s8"><h2>Stromausfälle Deutschland <a href="https://xn--strungsauskunft-9sb.de/stromausfall" target="_blank" rel="noopener">Störungsauskunft.de in neuem Tab öffnen</a></h2><iframe id="map" src="https://xn--strungsauskunft-9sb.de/stromausfall" title="Karte Stromausfälle Deutschland, Störungsauskunft.de" loading="lazy" referrerpolicy="no-referrer"></iframe><p class="po">Interaktive Karte, nur online abrufbar: störungsauskunft.de/stromausfall</p><p class="note">Wird hier nur eine leere Fläche angezeigt, erlaubt die Seite das Einbetten nicht. Dann über den Link oben öffnen.</p></section>
   <section class="card s4"><h2>Meldungen Stromausfall <span>24 Std.</span></h2><ul id="outl"></ul></section>
-  <section class="card s6"><h2>Verkehrslage Frankfurt <a href="https://mainziel.de/verkehrsinfo" target="_blank" rel="noopener">mainziel.de in neuem Tab öffnen</a></h2><iframe class="fr" src="https://mainziel.de/verkehrsinfo" title="Verkehrskarte Frankfurt, mainziel.de" loading="lazy" referrerpolicy="no-referrer"></iframe><p class="note">Wird hier nur eine leere Fläche angezeigt, erlaubt die Seite das Einbetten nicht. Dann über den Link oben öffnen.</p></section>
-  <section class="card s6"><h2>Regenradar <span>DWD, Aktualisierung alle 5 Min.</span></h2><div id="radar" class="mapbox"></div><p class="note">Radarbild: Deutscher Wetterdienst. Karte: Esri.</p></section>
+  <section class="card s6"><h2>Verkehrslage Frankfurt <a href="https://mainziel.de/verkehrsinfo" target="_blank" rel="noopener">mainziel.de in neuem Tab öffnen</a></h2><iframe class="fr" src="https://mainziel.de/verkehrsinfo" title="Verkehrskarte Frankfurt, mainziel.de" loading="lazy" referrerpolicy="no-referrer"></iframe><p class="po">Interaktive Karte, nur online abrufbar: mainziel.de/verkehrsinfo</p><p class="note">Wird hier nur eine leere Fläche angezeigt, erlaubt die Seite das Einbetten nicht. Dann über den Link oben öffnen.</p></section>
+  <section class="card s6"><h2>Regenradar <span>DWD, Aktualisierung alle 5 Min.</span></h2><div id="radar" class="mapbox"></div><p class="note">Radarbild: Deutscher Wetterdienst. Karte: OpenStreetMap.</p></section>
 
   <div style="display:contents" id="feeds"></div>
 </main>
@@ -214,19 +249,25 @@ decorate();
 
 const MON=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"],p2=n=>String(n).padStart(2,"0");
 let tac=false;try{tac=localStorage.getItem("tz")==="z"}catch(e){}
+const BER=new Intl.DateTimeFormat("de-DE",{timeZone:"Europe/Berlin",year:"numeric",month:"numeric",day:"numeric",hour:"numeric",minute:"numeric",hourCycle:"h23"});
+function ber(d){const o={};BER.formatToParts(d).forEach(p=>o[p.type]=+p.value);
+  o.off=Math.round((Date.UTC(o.year,o.month-1,o.day,o.hour,o.minute)-Math.floor(d/6e4)*6e4)/36e5);return o}
 function tick(){const d=new Date();
-  if(tac){$("clock").textContent=`${p2(d.getUTCDate())}${p2(d.getUTCHours())}${p2(d.getUTCMinutes())}Z ${MON[d.getUTCMonth()]} ${p2(d.getUTCFullYear()%100)}`;
-    $("cdate").textContent=d.toLocaleDateString("de-DE",{timeZone:"UTC",day:"numeric",month:"long",year:"numeric"})+", "+p2(d.getUTCHours())+":"+p2(d.getUTCMinutes())+" Uhr UTC"}
+  if(tac){const b=ber(d),sum=b.off===2;
+    $("clock").textContent=`${p2(b.day)}${p2(b.hour)}${p2(b.minute)}${sum?"B":"A"} ${MON[b.month-1]} ${p2(b.year%100)}`;
+    $("cdate").textContent=d.toLocaleDateString("de-DE",{timeZone:"Europe/Berlin",day:"numeric",month:"long",year:"numeric"})+", "+p2(b.hour)+":"+p2(b.minute)+" Uhr "+(sum?"MESZ":"MEZ")+" (UTC+"+b.off+")"}
   else{$("clock").textContent=d.toLocaleTimeString("de-DE");$("cdate").textContent=d.toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
-  $("tz").textContent=tac?"Zulu":"Lokal"}
-$("tz").onclick=()=>{tac=!tac;try{localStorage.setItem("tz",tac?"z":"l")}catch(e){}tick()};
+  const t=$("tz");t.setAttribute("aria-checked",tac);t.querySelectorAll(".lab").forEach(l=>l.classList.toggle("on",(l.dataset.m==="z")===tac))}
+function setMode(z){tac=z;try{localStorage.setItem("tz",z?"z":"l")}catch(e){}tick()}
+$("tz").onclick=()=>setMode(!tac);
+$("tz").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setMode(!tac)}};
+$("tz").querySelectorAll(".lab").forEach(l=>l.onclick=e=>{e.stopPropagation();setMode(l.dataset.m==="z")});
 tick();setInterval(tick,1000);
 
 let rmap,rtiles,rlbl,rwms;
-function setTiles(){if(!rmap)return;const dark=document.documentElement.dataset.theme!=="light",u=n=>`https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_${dark?"Dark":"Light"}_Gray_${n}/MapServer/tile/{z}/{y}/{x}`;
-  if(rtiles)rmap.removeLayer(rtiles);if(rlbl)rmap.removeLayer(rlbl);
-  rtiles=L.tileLayer(u("Base"),{maxZoom:12,attribution:"Karte © Esri"}).addTo(rmap);
-  rlbl=L.tileLayer(u("Reference"),{maxZoom:12,pane:"lbl"}).addTo(rmap);if(rwms)rwms.bringToFront()}
+function setTiles(){if(!rmap)return;const dark=document.documentElement.dataset.theme!=="light";
+  if(rtiles)rmap.removeLayer(rtiles);
+  rtiles=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:12,className:dark?"base-dark":"",attribution:"© OpenStreetMap"}).addTo(rmap);if(rwms)rwms.bringToFront()}
 function initRadar(){try{
   rmap=L.map("radar").setView([50.11,8.68],8);rmap.createPane("lbl").style.zIndex=450;rmap.getPane("lbl").style.pointerEvents="none";setTiles();
   new ResizeObserver(()=>{rmap.invalidateSize();rmap.setView([50.11,8.68],8)}).observe($("radar"));
@@ -234,6 +275,13 @@ function initRadar(){try{
   L.circleMarker([50.11,8.68],{radius:5,color:"#fff",weight:2,fillColor:"#ff6b6b",fillOpacity:1}).addTo(rmap);
 }catch(e){$("radar").innerHTML='<p class="err" style="padding:16px">Radarkarte konnte nicht geladen werden.</p>'}}
 $("ref").onclick=all;
+function stamp(){const d=new Date(),b=ber(d),sum=b.off===2;
+  $("ph").innerHTML=`<div class="pt">Lagebild Rhein-Main</div><div>Erstellt: ${d.toLocaleDateString("de-DE",{timeZone:"Europe/Berlin",weekday:"long",day:"numeric",month:"long",year:"numeric"})}, ${p2(b.hour)}:${p2(b.minute)} Uhr ${sum?"MESZ":"MEZ"} | ${p2(b.day)}${p2(b.hour)}${p2(b.minute)}${sum?"B":"A"} ${MON[b.month-1]} ${p2(b.year%100)}</div><div>Lage: ${$("ampelTxt").textContent} | ${$("upd").textContent}</div>`}
+function exportPdf(){const b=ber(new Date()),old=document.title;
+  document.title=`Lagebild_Rhein-Main_${b.year}-${p2(b.month)}-${p2(b.day)}_${p2(b.hour)}${p2(b.minute)}`;
+  stamp();window.print();setTimeout(()=>{document.title=old},1500)}
+window.addEventListener("beforeprint",stamp);
+$("pdf").onclick=exportPdf;
 $("theme").onclick=()=>{const r=document.documentElement,l=r.dataset.theme==="light";if(l)delete r.dataset.theme;else r.dataset.theme="light";setTiles();try{localStorage.setItem("th",l?"dark":"light")}catch(e){}};
 try{if(localStorage.getItem("th")==="light")document.documentElement.dataset.theme="light"}catch(e){}
 initRadar();all();setInterval(all,300000);
