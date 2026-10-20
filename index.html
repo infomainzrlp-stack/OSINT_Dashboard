@@ -73,7 +73,7 @@ button.sm{padding:5px 10px;font-size:12px;border-radius:8px}
   <section class="card s8"><h2>Stromausfälle Deutschland <a href="https://xn--strungsauskunft-9sb.de/stromausfall" target="_blank" rel="noopener">Störungsauskunft.de in neuem Tab öffnen</a></h2><iframe id="map" src="https://xn--strungsauskunft-9sb.de/stromausfall" title="Karte Stromausfälle Deutschland, Störungsauskunft.de" loading="lazy" referrerpolicy="no-referrer"></iframe><p class="note">Wird hier nur eine leere Fläche angezeigt, erlaubt die Seite das Einbetten nicht. Dann über den Link oben öffnen.</p></section>
   <section class="card s4"><h2>Meldungen Stromausfall <span>24 Std.</span></h2><ul id="outl"></ul></section>
   <section class="card s6"><h2>Verkehrslage Frankfurt <a href="https://mainziel.de/verkehrsinfo" target="_blank" rel="noopener">mainziel.de in neuem Tab öffnen</a></h2><iframe class="fr" src="https://mainziel.de/verkehrsinfo" title="Verkehrskarte Frankfurt, mainziel.de" loading="lazy" referrerpolicy="no-referrer"></iframe><p class="note">Wird hier nur eine leere Fläche angezeigt, erlaubt die Seite das Einbetten nicht. Dann über den Link oben öffnen.</p></section>
-  <section class="card s6"><h2>Regenradar <span>DWD, Aktualisierung alle 5 Min.</span></h2><div id="radar" class="mapbox"></div><p class="note">Radarbild: Deutscher Wetterdienst. Karte: OpenStreetMap, CARTO.</p></section>
+  <section class="card s6"><h2>Regenradar <span>DWD, Aktualisierung alle 5 Min.</span></h2><div id="radar" class="mapbox"></div><p class="note">Radarbild: Deutscher Wetterdienst. Karte: Esri.</p></section>
 
   <div style="display:contents" id="feeds"></div>
 </main>
@@ -222,11 +222,14 @@ function tick(){const d=new Date();
 $("tz").onclick=()=>{tac=!tac;try{localStorage.setItem("tz",tac?"z":"l")}catch(e){}tick()};
 tick();setInterval(tick,1000);
 
-let rmap,rtiles,rwms;
-function setTiles(){if(!rmap)return;const dark=document.documentElement.dataset.theme!=="light";if(rtiles)rmap.removeLayer(rtiles);
-  rtiles=L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark?"dark":"light"}_all/{z}/{x}/{y}{r}.png`,{maxZoom:12,attribution:"© OpenStreetMap, © CARTO"}).addTo(rmap);if(rwms)rwms.bringToFront()}
+let rmap,rtiles,rlbl,rwms;
+function setTiles(){if(!rmap)return;const dark=document.documentElement.dataset.theme!=="light",u=n=>`https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_${dark?"Dark":"Light"}_Gray_${n}/MapServer/tile/{z}/{y}/{x}`;
+  if(rtiles)rmap.removeLayer(rtiles);if(rlbl)rmap.removeLayer(rlbl);
+  rtiles=L.tileLayer(u("Base"),{maxZoom:12,attribution:"Karte © Esri"}).addTo(rmap);
+  rlbl=L.tileLayer(u("Reference"),{maxZoom:12,pane:"lbl"}).addTo(rmap);if(rwms)rwms.bringToFront()}
 function initRadar(){try{
-  rmap=L.map("radar").setView([50.11,8.68],8);setTiles();
+  rmap=L.map("radar").setView([50.11,8.68],8);rmap.createPane("lbl").style.zIndex=450;rmap.getPane("lbl").style.pointerEvents="none";setTiles();
+  new ResizeObserver(()=>{rmap.invalidateSize();rmap.setView([50.11,8.68],8)}).observe($("radar"));
   rwms=L.tileLayer.wms("https://maps.dwd.de/geoserver/dwd/wms",{layers:"dwd:Niederschlagsradar",format:"image/png",transparent:true,opacity:.75,attribution:"© DWD"}).addTo(rmap);
   L.circleMarker([50.11,8.68],{radius:5,color:"#fff",weight:2,fillColor:"#ff6b6b",fillOpacity:1}).addTo(rmap);
 }catch(e){$("radar").innerHTML='<p class="err" style="padding:16px">Radarkarte konnte nicht geladen werden.</p>'}}
