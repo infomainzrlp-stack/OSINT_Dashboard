@@ -6,6 +6,7 @@
 <title>Lagebild Rhein-Main</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
 :root{--bg:#0b1118;--panel:#121b26;--line:#1f2d3d;--text:#e6eef7;--mute:#8a9bb0;--ice:#8fd3ff;--ok:#4fd1a1;--warn:#ffc857;--bad:#ff6b6b;color-scheme:dark}
 :root[data-theme=light]{--bg:#eef3f8;--panel:#fff;--line:#d9e3ee;--text:#0f1b2a;--mute:#5b6c80;--ice:#0a78c2;--ok:#17916a;--warn:#b7791f;--bad:#d64545;color-scheme:light}
@@ -42,6 +43,13 @@ svg.spark{width:100%;height:40px;margin-top:10px}
 .note{color:var(--mute);font-size:12px;margin:10px 0 0}
 @media(max-width:1000px){.s3{grid-column:span 6}.s4,.s6,.s8{grid-column:span 12}}
 @media(max-width:600px){.s3{grid-column:span 12}main,header{padding:14px}}
+.card h2 .t{display:flex;align-items:center;gap:10px;min-width:0}
+.ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none;font-style:normal;background:color-mix(in srgb,var(--ice) 14%,transparent);color:var(--ice)}
+.ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.mapbox{height:420px;border-radius:12px;overflow:hidden;background:var(--bg)}
+iframe.fr{display:block;width:100%;height:420px;border:0;border-radius:12px;background:var(--bg)}
+.clockwrap{display:flex;align-items:center;gap:12px}
+button.sm{padding:5px 10px;font-size:12px;border-radius:8px}
 </style>
 </head>
 <body>
@@ -49,7 +57,7 @@ svg.spark{width:100%;height:40px;margin-top:10px}
   <h1>Lagebild Rhein-Main</h1>
   <div class="status"><span class="dot" id="dot"></span><span id="ampelTxt">Lade Daten …</span></div>
   <div class="sp"></div>
-  <div style="text-align:right"><div class="clock" id="clock"></div><div class="sub" id="upd"></div></div>
+  <div class="clockwrap"><button id="tz" class="sm" title="Zeitanzeige umschalten: Lokalzeit oder taktische Zeit (Zulu/UTC)">Lokal</button><div style="text-align:right"><div class="clock" id="clock"></div><div class="sub" id="cdate"></div><div class="sub" id="upd"></div></div></div>
   <button id="ref">Aktualisieren</button>
   <button id="theme">Hell/Dunkel</button>
 </header>
@@ -59,24 +67,25 @@ svg.spark{width:100%;height:40px;margin-top:10px}
   <section class="card s3"><h2>Strompreis Day-Ahead <span>Energy-Charts</span></h2><div id="pr" class="empty">Lade …</div></section>
   <section class="card s3"><h2>Gasspeicher Deutschland <span>GIE AGSI+</span></h2><div id="gas" class="empty">Lade …</div></section>
 
-  <section class="card s4"><h2>NINA-Warnungen Region <span>Frankfurt, Mainz, Wiesbaden</span></h2><ul id="nina"></ul></section>
-  <section class="card s4"><h2>NINA-Warnungen Deutschland <span>Auszug</span></h2><ul id="ninaDe"></ul></section>
-  <section class="card s4"><h2>Unwetterwarnungen Hessen <span>DWD via Brightsky</span></h2><ul id="dwd"></ul></section>
+  <section class="card s6"><h2>NINA-Warnungen Region <span>Frankfurt, Mainz, Wiesbaden</span></h2><ul id="nina"></ul></section>
+  <section class="card s6"><h2>Unwetterwarnungen Hessen <span>DWD via Brightsky</span></h2><ul id="dwd"></ul></section>
 
   <section class="card s8"><h2>Stromausfälle Deutschland <a href="https://xn--strungsauskunft-9sb.de/stromausfall" target="_blank" rel="noopener">Störungsauskunft.de in neuem Tab öffnen</a></h2><iframe id="map" src="https://xn--strungsauskunft-9sb.de/stromausfall" title="Karte Stromausfälle Deutschland, Störungsauskunft.de" loading="lazy" referrerpolicy="no-referrer"></iframe><p class="note">Wird hier nur eine leere Fläche angezeigt, erlaubt die Seite das Einbetten nicht. Dann über den Link oben öffnen.</p></section>
   <section class="card s4"><h2>Meldungen Stromausfall <span>24 Std.</span></h2><ul id="outl"></ul></section>
+  <section class="card s6"><h2>Verkehrslage Frankfurt <a href="https://mainziel.de/verkehrsinfo" target="_blank" rel="noopener">mainziel.de in neuem Tab öffnen</a></h2><iframe class="fr" src="https://mainziel.de/verkehrsinfo" title="Verkehrskarte Frankfurt, mainziel.de" loading="lazy" referrerpolicy="no-referrer"></iframe><p class="note">Wird hier nur eine leere Fläche angezeigt, erlaubt die Seite das Einbetten nicht. Dann über den Link oben öffnen.</p></section>
+  <section class="card s6"><h2>Regenradar <span>DWD, Aktualisierung alle 5 Min.</span></h2><div id="radar" class="mapbox"></div><p class="note">Radarbild: Deutscher Wetterdienst. Karte: OpenStreetMap, CARTO.</p></section>
 
   <div style="display:contents" id="feeds"></div>
 </main>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-
 const NEWS=[
- ["Polizei Frankfurt","site:presseportal.de Polizei Frankfurt","Polizei Frankfurt Einsatz","s6"],
- ["Feuerwehr Frankfurt","site:presseportal.de Feuerwehr Frankfurt","Feuerwehr Frankfurt Einsatz","s6"],
- ["Cyberlage","Cyberangriff OR Ransomware OR BSI Warnung Energieversorger OR kritische Infrastruktur","Cyberangriff Deutschland","s4"],
- ["Terror & Anschläge","Anschlag OR Terror OR Terrorwarnung Deutschland","","s4"],
- ["Sabotage & Spionage","Sabotage OR Spionage Deutschland kritische Infrastruktur","","s4"]
+ ["Polizei Frankfurt",["Polizei Frankfurt Einsatz OR Festnahme OR Unfall OR Großeinsatz -Eintracht -Fußball -Bundesliga", "site:presseportal.de Polizei Frankfurt", "Polizeipräsidium Frankfurt Meldung -Eintracht -Fußball"],"s6",/Eintracht|Bundesliga|Fußball/i],
+ ["Feuerwehr Frankfurt",["Feuerwehr Frankfurt Einsatz OR Brand OR Rettungsdienst -Eintracht -Fußball -Bundesliga", "Berufsfeuerwehr Frankfurt am Main -Eintracht -Fußball", "site:presseportal.de Feuerwehr Frankfurt"],"s6",/Eintracht|Bundesliga|Fußball/i],
+ ["Cyberlage",["Cyberangriff OR Ransomware OR BSI Warnung Energieversorger OR kritische Infrastruktur", "Cyberangriff Deutschland"],"s4"],
+ ["Terror & Anschläge",["Anschlag OR Terror OR Terrorwarnung Deutschland"],"s4"],
+ ["Sabotage & Spionage",["Sabotage OR Spionage Deutschland kritische Infrastruktur"],"s4"]
 ];
 const OUT=["Stromausfall","Stromausfall Haushalte Straße","Stromausfall Stadtteil Netzbetreiber","Stromausfall Gemeinde Störung"];
 
@@ -92,7 +101,7 @@ const li=(href,title,meta,cls="")=>{const l=document.createElement("li"),a=docum
 const fill=(id,items,empty)=>{$(id).replaceChildren(...(items.length?items:[Object.assign(document.createElement("li"),{className:"empty",textContent:empty})]))};
 const errLi=(id,t)=>{$(id).replaceChildren(Object.assign(document.createElement("li"),{className:"err",textContent:t}))};
 
-NEWS.forEach(([t,,,w],i)=>$("feeds").insertAdjacentHTML("beforeend",`<section class="card ${w}"><h2>${t}<span>48 Std.</span></h2><ul id="f${i}"></ul></section>`));
+NEWS.forEach(([t,,w],i)=>$("feeds").insertAdjacentHTML("beforeend",`<section class="card ${w}"><h2>${t}<span>48 Std.</span></h2><ul id="f${i}"></ul></section>`));
 
 const WMO={0:"klar",1:"überwiegend klar",2:"wolkig",3:"bedeckt",45:"Nebel",48:"Reifnebel",51:"leichter Nieselregen",53:"Nieselregen",55:"starker Nieselregen",61:"leichter Regen",63:"Regen",65:"starker Regen",71:"leichter Schnee",73:"Schnee",75:"starker Schnee",80:"Schauer",81:"Schauer",82:"heftige Schauer",95:"Gewitter",96:"Gewitter mit Hagel",99:"schweres Gewitter"};
 async function weather(){try{
@@ -143,13 +152,6 @@ async function nina(){
   setAmpel(bad===3?"warn":items.length===0?"ok":hi?"bad":"warn",bad===3?"Warnlage nicht prüfbar":items.length===0?"Keine amtlichen Warnungen in der Region":`${items.length} aktive Warnung${items.length>1?"en":""} in der Region`);
 }
 function setAmpel(s,t){$("dot").style.background=`var(--${s})`;$("ampelTxt").textContent=t}
-async function ninaDe(){let all=[];
-  for(const p of["mowas","katwarn","biwapp","police"]){try{(await j(`https://warnung.bund.de/api31/${p}/mapData.json`)).forEach(w=>all.push([new Date(w.startDate),w,p]))}catch(e){}}
-  if(!all.length)return errLi("ninaDe","NINA: keine Daten");
-  all.sort((a,b)=>b[0]-a[0]);
-  fill("ninaDe",all.slice(0,10).map(([d,w,p])=>li("https://warnung.bund.de/meldungen",w.i18nTitle?.de||w.id,`${p.toUpperCase()}, ${ago(d)}`,"w"+(sev[w.severity]>=2?" hi":""))),"Keine Meldungen.");
-}
-
 async function dwd(){
   const C=[["Frankfurt",50.11,8.68],["Kassel",51.31,9.48],["Fulda",50.55,9.67],["Gießen",50.58,8.67],["Darmstadt",49.87,8.65]],seen=new Map();let ok=0;
   for(const[n,la,lo]of C){try{(await j(`https://api.brightsky.dev/alerts?lat=${la}&lon=${lo}`)).alerts.forEach(a=>{if(!seen.has(a.alert_id||a.id))seen.set(a.alert_id||a.id,[a,n])});ok++}catch(e){}}
@@ -162,9 +164,12 @@ async function dwd(){
 
 async function news(q,days=2){const a=D["n:"+q+"|"+days];if(!a)throw new Error("keine Daten");return a.map(x=>({...x,d:new Date(x.d)}))}
 const row=x=>li(x.l,x.t,`${x.s}${x.s?", ":""}${ago(x.d)}`);
-async function feed(i){const[,q,fb]=NEWS[i];try{
-  let it=await news(q);if(!it.length&&fb)it=await news(fb);
-  fill("f"+i,it.slice(0,8).map(row),"Keine Meldungen der letzten 48 Stunden.");
+async function feed(i){const[,qs,,x]=NEWS[i];try{
+  if(qs.every(q=>!D["n:"+q+"|2"]))throw 0;
+  const R=await Promise.all(qs.map(q=>news(q).catch(()=>[]))),seen=new Set(),it=[];
+  R.flat().forEach(r=>{if(!seen.has(r.t)&&!(x&&x.test(r.t))){seen.add(r.t);it.push(r)}});
+  it.sort((a,b)=>b.d-a.d);
+  fill("f"+i,it.slice(0,10).map(row),"Keine Meldungen der letzten 48 Stunden.");
 }catch(e){errLi("f"+i,"Nachrichtenquelle: keine Daten")}}
 
 async function outages(){try{
@@ -177,16 +182,58 @@ async function outages(){try{
 async function all(){
   $("upd").textContent="aktualisiere …";
   try{D=await(await fetch("data.json?"+Date.now())).json()}catch(e){D={}}
-  await Promise.all([weather(),pegel(),price(),gas(),nina(),ninaDe(),dwd(),outages(),...NEWS.map((_,i)=>feed(i))]);
+  if(typeof rwms!=="undefined"&&rwms)rwms.setParams({_:Date.now()});
+  await Promise.all([weather(),pegel(),price(),gas(),nina(),dwd(),outages(),...NEWS.map((_,i)=>feed(i))]);
   const g=D._generated?new Date(D._generated):null,er=D._errors||[];
   $("upd").textContent=g?"Daten von "+fmtT(g)+" Uhr"+(er.length?`, ${er.length} Quelle(n) ohne Daten`:""):"data.json fehlt";
   $("upd").title=er.join("\n");
 }
-$("clock").textContent=new Date().toLocaleTimeString("de-DE");setInterval(()=>$("clock").textContent=new Date().toLocaleTimeString("de-DE"),1000);
+const IC={
+cloud:'<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+waves:'<path d="M2 7c2 0 2.5-2 5-2s3 2 5 2 2.5-2 5-2 3 2 5 2"/><path d="M2 13c2 0 2.5-2 5-2s3 2 5 2 2.5-2 5-2 3 2 5 2"/><path d="M2 19c2 0 2.5-2 5-2s3 2 5 2 2.5-2 5-2 3 2 5 2"/>',
+zap:'<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
+zapoff:'<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/><path d="M3 3l18 18"/>',
+flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+bolt:'<path d="M6 16.3A7 7 0 1 1 15.7 8h1.8a4.5 4.5 0 0 1 .5 9"/><path d="m13 12-3 5h4l-3 5"/>',
+list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+car:'<path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><path d="M7 14h.01M17 14h.01M6 17v2M18 17v2"/>',
+radar:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/><path d="m12 12 6-6"/>',
+shield:'<path d="M12 3 5 6v6c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6z"/><path d="m9 12 2 2 4-4"/>',
+siren:'<path d="M7 18v-6a5 5 0 1 1 10 0v6"/><path d="M5 21h14a1 1 0 0 0 1-1v-1a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1z"/><path d="M21 12h1M2 12h1M12 2v1M4.9 4.9l.7.7M19.1 4.9l-.7.7"/>',
+lock:'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+alert:'<path d="m21.7 18-8-14a2 2 0 0 0-3.5 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3"/><path d="M12 9v4M12 17h.01"/>',
+eye:'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12"/><circle cx="12" cy="12" r="3"/>'};
+const MAP=[["Meldungen Stromausfall","list"],["Stromausfälle","zapoff"],["Strompreis","zap"],["Gasspeicher","flame"],["Unwetter","bolt"],["Wetter","cloud"],["Pegel","waves"],["NINA","bell"],["Verkehr","car"],["Regenradar","radar"],["Polizei","shield"],["Feuerwehr","siren"],["Cyber","lock"],["Terror","alert"],["Sabotage","eye"]];
+function decorate(){document.querySelectorAll(".card h2").forEach(h=>{if(h.querySelector(".t"))return;
+  const k=(MAP.find(m=>h.textContent.includes(m[0]))||[0,"list"])[1],t=document.createElement("div");t.className="t";
+  t.innerHTML=`<i class="ic"><svg viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg></i>`;
+  [...h.childNodes].filter(n=>!(n.nodeType===1&&/^(SPAN|A)$/.test(n.tagName))).forEach(n=>t.append(n));
+  h.prepend(t)})}
+decorate();
+
+const MON=["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"],p2=n=>String(n).padStart(2,"0");
+let tac=false;try{tac=localStorage.getItem("tz")==="z"}catch(e){}
+function tick(){const d=new Date();
+  if(tac){$("clock").textContent=`${p2(d.getUTCDate())}${p2(d.getUTCHours())}${p2(d.getUTCMinutes())}Z ${MON[d.getUTCMonth()]} ${p2(d.getUTCFullYear()%100)}`;
+    $("cdate").textContent=d.toLocaleDateString("de-DE",{timeZone:"UTC",day:"numeric",month:"long",year:"numeric"})+", "+p2(d.getUTCHours())+":"+p2(d.getUTCMinutes())+" Uhr UTC"}
+  else{$("clock").textContent=d.toLocaleTimeString("de-DE");$("cdate").textContent=d.toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
+  $("tz").textContent=tac?"Zulu":"Lokal"}
+$("tz").onclick=()=>{tac=!tac;try{localStorage.setItem("tz",tac?"z":"l")}catch(e){}tick()};
+tick();setInterval(tick,1000);
+
+let rmap,rtiles,rwms;
+function setTiles(){if(!rmap)return;const dark=document.documentElement.dataset.theme!=="light";if(rtiles)rmap.removeLayer(rtiles);
+  rtiles=L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark?"dark":"light"}_all/{z}/{x}/{y}{r}.png`,{maxZoom:12,attribution:"© OpenStreetMap, © CARTO"}).addTo(rmap);if(rwms)rwms.bringToFront()}
+function initRadar(){try{
+  rmap=L.map("radar").setView([50.11,8.68],8);setTiles();
+  rwms=L.tileLayer.wms("https://maps.dwd.de/geoserver/dwd/wms",{layers:"dwd:Niederschlagsradar",format:"image/png",transparent:true,opacity:.75,attribution:"© DWD"}).addTo(rmap);
+  L.circleMarker([50.11,8.68],{radius:5,color:"#fff",weight:2,fillColor:"#ff6b6b",fillOpacity:1}).addTo(rmap);
+}catch(e){$("radar").innerHTML='<p class="err" style="padding:16px">Radarkarte konnte nicht geladen werden.</p>'}}
 $("ref").onclick=all;
-$("theme").onclick=()=>{const r=document.documentElement,l=r.dataset.theme==="light";if(l)delete r.dataset.theme;else r.dataset.theme="light";try{localStorage.setItem("th",l?"dark":"light")}catch(e){}};
+$("theme").onclick=()=>{const r=document.documentElement,l=r.dataset.theme==="light";if(l)delete r.dataset.theme;else r.dataset.theme="light";setTiles();try{localStorage.setItem("th",l?"dark":"light")}catch(e){}};
 try{if(localStorage.getItem("th")==="light")document.documentElement.dataset.theme="light"}catch(e){}
-all();setInterval(all,300000);
+initRadar();all();setInterval(all,300000);
 </script>
 </body>
 </html>
